@@ -1,4 +1,5 @@
 import json
+import os
 import shlex
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -19,6 +20,9 @@ VALIDATION_STATE = BASE / "runtime/validation_state.json"
 VALIDATION_LOG = BASE / "metadata/validation_logs/w3m_validation.jsonl"
 OFFLOAD_LIST = BASE / "runtime/offload_list.jsonl"
 ARCHIVE_DIR = BASE / "archive/offloaded_batches"
+
+SS_LOG = BASE / "metadata/ingest_logs/semantic_scholar.log"
+SS_STATE = BASE / "metadata/ingest_logs/semantic_scholar_state.json"
 
 PAPER_SOURCES = ["arxiv_feed.jsonl", "semantic_scholar_feed.jsonl"]
 
@@ -296,6 +300,7 @@ def validation_summary() -> dict:
         "last_attempt_at": state.get("last_attempt_at"),
         "target_per_hour": 60,
         "recent_log": recent_log,
+        "semantic_scholar": ss_ingest_summary(),
     }
 
 
@@ -338,6 +343,56 @@ def offload_summary() -> dict:
     }
 
 
+def ss_ingest_summary() -> dict:
+    state = {}
+    if SS_STATE.exists():
+        try:
+            state = json.loads(SS_STATE.read_text())
+        except Exception:
+            pass
+
+    # Count SS candidates in validation queue
+    ss_queued = 0
+    if VALIDATION_QUEUE.exists():
+        with VALIDATION_QUEUE.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                    if r.get("source") == "semantic_scholar":
+                        ss_queued += 1
+                except Exception:
+                    pass
+
+    # Recent log lines — capture INFO lines and flag 429/backoff events
+    recent_lines: list = []
+    backoff_events: list = []
+    if SS_LOG.exists():
+        try:
+            lines = SS_LOG.read_text(encoding="utf-8").splitlines()
+            for line in reversed(lines[-50:]):
+                if not line.strip():
+                    continue
+                if "429" in line or "backoff" in line.lower():
+                    backoff_events.append(line)
+                elif len(recent_lines) < 10:
+                    recent_lines.append(line)
+            backoff_events = backoff_events[:5]
+        except Exception:
+            pass
+
+    return {
+        "api_key_configured": bool(os.environ.get("S2_API_KEY")),
+        "total_ingested": state.get("total_ingested", 0),
+        "total_429s": state.get("total_429s", 0),
+        "ss_queued": ss_queued,
+        "recent_log": recent_lines,
+        "backoff_events": backoff_events,
+    }
+
+
 def get_ingest_status() -> dict:
     recent = []
     if BRIDGE_OUTBOX.exists():
@@ -358,6 +413,12 @@ def render() -> str:
     sf = substrate_files()
     pc = processed_count()
     tail = log_tail()
+    s2_ok = bool(os.environ.get("S2_API_KEY"))
+    s2_status_html = (
+        '<span class="status">configured</span>'
+        if s2_ok
+        else '<span style="color:#f90">MISSING — set S2_API_KEY in environment</span>'
+    )
 
     corpus_rows = "".join(
         f"<tr><td>{f.name}</td><td>{f.stat().st_size:,} bytes</td></tr>"
@@ -478,6 +539,7 @@ def render() -> str:
   <tr><td>Ingest log</td><td class="path">{INGEST_LOG}</td></tr>
   <tr><td>Processed state</td><td class="path">{PROCESSED}</td></tr>
   <tr><td>Processed key count</td><td>{pc}</td></tr>
+  <tr><td>Semantic Scholar API</td><td>{s2_status_html}</td></tr>
   </table>
 </div>
 
@@ -808,8 +870,18 @@ function loadValidation() {{
           '<td style="font-size:0.8em;color:#888">' + esc(e.error || '') + '</td>' +
           '</tr>';
       }}).join('');
+      var ss = d.semantic_scholar || {{}};
+      var ssKeyStatus = ss.api_key_configured
+        ? '<span style="color:#00cc66">configured</span>'
+        : '<span style="color:#f90">MISSING — set S2_API_KEY</span>';
+      var ssBackoffRows = (ss.backoff_events || []).map(function (line) {{
+        return '<tr><td style="font-size:0.78em;color:#f90">' + esc(line) + '</td></tr>';
+      }}).join('');
+      var ssLogRows = (ss.recent_log || []).map(function (line) {{
+        return '<tr><td style="font-size:0.78em;color:#888">' + esc(line) + '</td></tr>';
+      }}).join('');
       el.innerHTML =
-        '<table class="tg-table"><tr><th colspan="2">Validation State</th></tr>' +
+        '<table class="tg-table"><tr><th colspan="2">w3m Validation State</th></tr>' +
         '<tr><td>Queue total</td><td>' + d.queue_total + '</td></tr>' +
         '<tr><td>Pending</td><td>' + d.queue_pending + '</td></tr>' +
         '<tr><td>Done</td><td>' + d.queue_done + '</td></tr>' +
@@ -817,9 +889,21 @@ function loadValidation() {{
         '<tr><td>Last attempt</td><td style="font-size:0.85em;color:#888">' + esc(d.last_attempt_at || '(none)') + '</td></tr>' +
         '<tr><td>Target rate</td><td>' + d.target_per_hour + ' / hour</td></tr>' +
         '</table>' +
-        '<h2>Recent Validation Log</h2>' +
+        '<h2>Recent w3m Validation Log</h2>' +
         '<table><tr><th>Attempted at</th><th>Status</th><th>URL</th><th>Error</th></tr>' +
         (logRows || '<tr><td colspan="4">(no log entries)</td></tr>') +
+        '</table>' +
+        '<h2 style="margin-top:1.5rem">Semantic Scholar Ingest</h2>' +
+        '<table class="tg-table"><tr><th colspan="2">S2 State</th></tr>' +
+        '<tr><td>API key</td><td>' + ssKeyStatus + '</td></tr>' +
+        '<tr><td>Total ingested</td><td>' + (ss.total_ingested || 0) + '</td></tr>' +
+        '<tr><td>Candidates queued</td><td>' + (ss.ss_queued || 0) + '</td></tr>' +
+        '<tr><td>Total 429s</td><td>' + (ss.total_429s || 0) + '</td></tr>' +
+        '</table>' +
+        (ssBackoffRows ? '<h2>Recent 429 / Backoff Events</h2><table>' + ssBackoffRows + '</table>' : '') +
+        '<h2>Recent S2 Ingest Log</h2>' +
+        '<table><tr><th>Log line</th></tr>' +
+        (ssLogRows || '<tr><td style="color:#555">(no log yet — run semantic_scholar_ingest.py)</td></tr>') +
         '</table>';
     }})
     .catch(function () {{

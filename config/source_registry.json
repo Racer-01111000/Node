@@ -13,9 +13,16 @@
       "name": "Semantic Scholar",
       "role": "metadata / citation / discovery feed",
       "output_file": "training/corpus/semantic_scholar_feed.jsonl",
-      "validation_method": "w3m",
+      "auth": "env:S2_API_KEY",
+      "validation_method": ["semantic_scholar_api", "w3m_live_validation"],
       "preferred_url_fields": ["url", "source_url", "semantic_scholar_url"],
       "base_url": "https://www.semanticscholar.org/paper/",
+      "rate_limit": {
+        "requests_per_second": 0.5,
+        "limit_per_query": 10,
+        "backoff_429_initial": 30,
+        "backoff_429_max": 300
+      },
       "enabled": true
     },
     "ibm_qiskit": {

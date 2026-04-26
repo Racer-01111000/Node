@@ -112,6 +112,7 @@ handoff/                    — handoff documents
 | `ingest_loop.py` | Incremental ingest loop (deduplicates) |
 | `generate_corpus.py` | Generate synthetic concept baseline (UNVERIFIED) |
 | `manual_ingest.py` | Stage manually selected local material |
+| `semantic_scholar_ingest.py` | Semantic Scholar API ingest (reads S2_API_KEY env) |
 | `validate_w3m_loop.py` | Continuous w3m validation (60/hour target) |
 | `offload_trained.py` | Archive consumed training documents |
 | `ui_server.py` | Local web UI on 127.0.0.1:7700 |
