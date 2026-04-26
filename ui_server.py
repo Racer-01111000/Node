@@ -410,6 +410,62 @@ def get_ingest_status() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Directory browser
+# ---------------------------------------------------------------------------
+
+def browse_directory(path: str | None) -> dict:
+    approved = [r.resolve() for r in SEARCH_ROOTS]
+
+    if path is None:
+        entries = []
+        for root in SEARCH_ROOTS:
+            if root.exists():
+                entries.append({"name": root.name, "path": str(root.resolve()), "type": "dir", "size": None})
+        return {"cwd": None, "parent": None, "entries": entries}
+
+    p = Path(path).resolve()
+    if not any(str(p).startswith(str(r)) or p == r for r in approved):
+        raise ValueError(f"Path outside approved roots: {path}")
+    if not p.exists() or not p.is_dir():
+        raise ValueError(f"Not a directory: {path}")
+
+    parent_p = p.parent
+    approved_strs = {str(r) for r in approved}
+    if str(p) in approved_strs:
+        parent = "__roots__"
+    elif parent_p != p and any(str(parent_p).startswith(str(r)) or parent_p == r for r in approved):
+        parent = str(parent_p)
+    else:
+        parent = None
+
+    entries = []
+    try:
+        for child in sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name.lower())):
+            if child.name.startswith('.'):
+                continue
+            if any(part in PROTECTED_NAMES for part in child.parts):
+                continue
+            if child.suffix in PROTECTED_SUFFIXES:
+                continue
+            size = None
+            if child.is_file():
+                try:
+                    size = child.stat().st_size
+                except Exception:
+                    pass
+            entries.append({
+                "name": child.name,
+                "path": str(child),
+                "type": "dir" if child.is_dir() else "file",
+                "size": size,
+            })
+    except PermissionError:
+        pass
+
+    return {"cwd": str(p), "parent": parent, "entries": entries}
+
+
+# ---------------------------------------------------------------------------
 # File intake helpers
 # ---------------------------------------------------------------------------
 
@@ -642,17 +698,18 @@ def render() -> str:
     <input type="text" id="source-path" placeholder="/home/rick/incoming/...">
   </div>
 
-  <h3>A — Search existing NODE files</h3>
+  <h3>A — Browse existing NODE files</h3>
   <div class="intake-section">
-    <p class="note" style="margin-top:0">Papers, docs, or files already on NODE. Click a result to fill Source path.</p>
-    <div class="field" style="margin-bottom:0">
-      <div class="inline">
-        <input type="text" id="search-query" placeholder="filename keyword or path fragment"
-               onkeydown="if(event.key==='Enter')searchFiles()">
-        <button class="btn" onclick="searchFiles()">Search</button>
-      </div>
-      <div class="search-results" id="search-results"></div>
+    <p class="note" style="margin-top:0">Navigate folders on NODE. Click a file to fill Source path. Or search by keyword below.</p>
+    <div id="fb-breadcrumb" style="font-size:0.85em;color:#888;margin-bottom:0.4rem;padding:4px 6px;background:#0a0a0a;border:1px solid #222">Loading…</div>
+    <div id="fb-entries" style="max-height:240px;overflow-y:auto;border:1px solid #333;background:#0a0a0a;margin-bottom:0.5rem"><div class="loading" style="padding:0.5rem">Loading…</div></div>
+    <div style="display:flex;gap:8px;max-width:600px">
+      <input type="text" id="search-query" placeholder="search by filename keyword"
+             style="flex:1;background:#111;color:#c8ffc8;border:1px solid #444;padding:5px 8px;font-family:monospace;font-size:0.85em"
+             onkeydown="if(event.key==='Enter')searchFiles()">
+      <button class="btn" onclick="searchFiles()">Search</button>
     </div>
+    <div class="search-results" id="search-results"></div>
   </div>
 
   <h3>B — Upload from HOST</h3>
@@ -775,9 +832,14 @@ def render() -> str:
 
   document.querySelectorAll('.tab').forEach(function (tab) {{
     tab.addEventListener('click', function () {{
-      if (tab.dataset.tab === 'manualingest') loadTelegramFiles();
+      if (tab.dataset.tab === 'manualingest') {{
+        loadTelegramFiles();
+        fbLoad(null);
+      }}
     }});
   }});
+
+  fbLoad(null);
 }})();
 
 function stateBadge(state) {{
@@ -900,6 +962,60 @@ function loadTruthGate() {{
     .catch(function () {{
       document.getElementById('truthgate-container').innerHTML =
         '<p class="empty-note" style="color:#f55">Failed to load truth gate summary.</p>';
+    }});
+}}
+
+// --- File browser (Route A) ---
+var fbCwd = null;
+function fbLoad(path) {{
+  var entriesEl = document.getElementById('fb-entries');
+  var breadEl = document.getElementById('fb-breadcrumb');
+  entriesEl.innerHTML = '<div class="loading" style="padding:0.5rem">Loading…</div>';
+  var url = '/api/browse' + (path != null ? '?path=' + encodeURIComponent(path) : '');
+  fetch(url, {{ cache: 'no-store' }})
+    .then(function (r) {{ return r.json(); }})
+    .then(function (data) {{
+      if (data.error) {{
+        entriesEl.innerHTML = '<div style="color:#f55;padding:0.5rem">' + esc(data.error) + '</div>';
+        return;
+      }}
+      fbCwd = data.cwd;
+      var crumb = data.cwd || '/ (roots)';
+      var upTarget = data.parent === '__roots__' ? null : data.parent;
+      var upBtn = data.parent !== null
+        ? '<button class="btn" onclick="fbLoad(' + (upTarget !== null ? JSON.stringify(upTarget) : 'null') + ')" style="padding:2px 8px;font-size:0.8em;margin-right:8px">↑ up</button>'
+        : '';
+      breadEl.innerHTML = upBtn + '<span style="color:#aaffff">' + esc(crumb) + '</span>';
+      entriesEl.innerHTML = '';
+      if (!data.entries.length) {{
+        entriesEl.innerHTML = '<div style="color:#555;padding:0.5rem;font-style:italic">(empty)</div>';
+        return;
+      }}
+      data.entries.forEach(function (e) {{
+        var d = document.createElement('div');
+        d.style.cssText = 'padding:5px 10px;cursor:pointer;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:8px;font-family:monospace;font-size:0.85em';
+        if (e.type === 'dir') {{
+          d.innerHTML = '<span style="color:#f5c542">&#128193;</span><span style="color:#c8ffc8">' + esc(e.name) + '/</span>';
+          d.addEventListener('click', function () {{ fbLoad(e.path); }});
+        }} else {{
+          var sz = e.size !== null ? '<span style="color:#444;font-size:0.8em;margin-left:6px">' + e.size + 'B</span>' : '';
+          d.innerHTML = '<span style="color:#555">&#128196;</span><span style="color:#aaffff">' + esc(e.name) + '</span>' + sz;
+          d.addEventListener('click', function () {{
+            document.getElementById('source-path').value = e.path;
+            document.querySelectorAll('#fb-entries div').forEach(function(x){{x.style.background='';}});
+            d.style.background = '#001a0d';
+            var msg = document.getElementById('ingest-msg');
+            msg.className = 'msg ok';
+            msg.textContent = 'Selected: ' + e.path;
+          }});
+        }}
+        d.addEventListener('mouseover', function () {{ if (!d.style.background || d.style.background !== 'rgb(0, 26, 13)') d.style.background='#1a2a1a'; }});
+        d.addEventListener('mouseout',  function () {{ if (d.style.background !== 'rgb(0, 26, 13)') d.style.background=''; }});
+        entriesEl.appendChild(d);
+      }});
+    }})
+    .catch(function () {{
+      entriesEl.innerHTML = '<div style="color:#f55;padding:0.5rem">Browse failed.</div>';
     }});
 }}
 
@@ -1246,6 +1362,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json(get_ingest_status())
         elif p == "/api/telegram-files":
             self._json({"files": list_telegram_files()})
+        elif p == "/api/browse":
+            qs = parse_qs(parsed.query)
+            browse_path = (qs.get("path") or [None])[0]
+            try:
+                self._json(browse_directory(browse_path))
+            except Exception as exc:
+                self._json({"error": str(exc)}, status=400)
         else:
             self._respond(404, "text/plain; charset=utf-8", b"Not found")
 
