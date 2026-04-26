@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-BASE = Path.home() / "Node_Temp_Node"
+BASE = Path.home() / "NODE"
 CORPUS = BASE / "training/corpus"
 SUBSTRATE = BASE / "training/substrate"
 INGEST_LOG = BASE / "metadata/ingest_logs/ingest.log"
@@ -32,7 +32,7 @@ ELEVATED_MODES = frozenset({"corpus_candidate"})
 
 SEARCH_ROOTS = [
     Path.home() / "incoming",
-    Path.home() / "Node_Temp_Node",
+    Path.home() / "NODE",
 ]
 
 PROTECTED_NAMES = frozenset({
@@ -431,7 +431,7 @@ def render() -> str:
 <html>
 <head>
 <meta charset="utf-8">
-<title>Node_Temp_Node</title>
+<title>NODE</title>
 <style>
   * {{ box-sizing: border-box; }}
   body {{ font-family: monospace; background: #0d0d0d; color: #c8ffc8; margin: 0; padding: 0; }}
@@ -503,7 +503,7 @@ def render() -> str:
 </head>
 <body>
 <header>
-  <h1>Node_Temp_Node</h1>
+  <h1>NODE</h1>
   <p style="margin:0 0 0.5rem">Status: <span class="online">ONLINE</span></p>
   <nav class="tabs">
     <div class="tab active" data-tab="status">Status</div>
@@ -1088,5 +1088,5 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = HTTPServer((HOST_ADDR, PORT), Handler)
-    print(f"Node_Temp_Node UI: http://{HOST_ADDR}:{PORT}")
+    print(f"NODE UI: http://{HOST_ADDR}:{PORT}")
     server.serve_forever()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Offload manager for trained/consumed Node_Temp_Node corpus documents.
+Offload manager for trained/consumed NODE corpus documents.
 
 Reads runtime/offload_list.jsonl.
 When the list reaches the archive trigger count (default 100), creates a
@@ -28,7 +28,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-BASE = Path.home() / "Node_Temp_Node"
+BASE = Path.home() / "NODE"
 CONFIG_PATH = BASE / "config/source_registry.json"
 OFFLOAD_PATH = BASE / "runtime/offload_list.jsonl"
 ARCHIVE_DIR = BASE / "archive/offloaded_batches"

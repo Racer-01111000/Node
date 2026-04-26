@@ -1,4 +1,4 @@
-# Node_Temp_Node
+# NODE
 
 NODE-side corpus acquisition, validation, truth-gate, and LLaMA quantum training preparation pipeline.
 

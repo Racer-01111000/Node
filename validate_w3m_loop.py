@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Continuous w3m-based validation loop for Node_Temp_Node corpus candidates.
+Continuous w3m-based validation loop for NODE corpus candidates.
 
 Target: 60 validation attempts per hour (1 per minute globally).
 Per-domain cooldown: 120 seconds (configurable via config/source_registry.json).
@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
-BASE = Path.home() / "Node_Temp_Node"
+BASE = Path.home() / "NODE"
 CONFIG_PATH = BASE / "config/source_registry.json"
 QUEUE_PATH = BASE / "runtime/validation_queue.jsonl"
 STATE_PATH = BASE / "runtime/validation_state.json"

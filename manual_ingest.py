@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Controlled manual ingest into Node_Temp_Node staging.
+Controlled manual ingest into NODE staging.
 
 Stages local material for pipeline evaluation. Does NOT promote to corpus.
 Promotion requires truth-gate corroboration (two verified sources or two
@@ -14,10 +14,10 @@ from pathlib import Path
 
 APPROVED_ROOTS = [
     Path.home() / "incoming",
-    Path.home() / "Node_Temp_Node",
+    Path.home() / "NODE",
 ]
 
-STAGING = Path.home() / "Node_Temp_Node/staging/manual"
+STAGING = Path.home() / "NODE/staging/manual"
 
 VALID_MODES = {"stage_only", "truth_gate", "corpus_candidate"}
 VALID_TYPES = {"notes", "paper", "transcript", "code", "documentation", "web_capture", "unknown"}
@@ -68,7 +68,7 @@ def stage(p: Path, mode: str, source_type: str, tags: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Manually stage local material into Node_Temp_Node pipeline."
+        description="Manually stage local material into NODE pipeline."
     )
     parser.add_argument("--path", required=True, help="Source file or directory path")
     parser.add_argument("--mode", default="stage_only", choices=sorted(VALID_MODES))

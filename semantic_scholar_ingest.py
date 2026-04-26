@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Semantic Scholar API ingest for Node_Temp_Node corpus.
+Semantic Scholar API ingest for NODE corpus.
 
 Security:
 - Reads S2_API_KEY from environment only.
@@ -25,7 +25,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-BASE = Path.home() / "Node_Temp_Node"
+BASE = Path.home() / "NODE"
 CORPUS_FILE = BASE / "training/corpus/semantic_scholar_feed.jsonl"
 LOG_FILE = BASE / "metadata/ingest_logs/semantic_scholar.log"
 STATE_FILE = BASE / "metadata/ingest_logs/semantic_scholar_state.json"
@@ -209,7 +209,7 @@ def api_get(url: str, params: dict, api_key: str, timeout: int = 30) -> tuple[di
     full_url = url + "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(full_url)
     req.add_header("x-api-key", api_key)
-    req.add_header("User-Agent", "Node_Temp_Node/1.0 (kestrel-node research)")
+    req.add_header("User-Agent", "NODE/1.0 (kestrel-node research)")
 
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
