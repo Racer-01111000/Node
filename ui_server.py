@@ -3,7 +3,7 @@ import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-BASE = Path.home() / "Node_Temp"
+BASE = Path.home() / "Node_Temp_Node"
 CORPUS = BASE / "training/corpus"
 SUBSTRATE = BASE / "training/substrate"
 INGEST_LOG = BASE / "metadata/ingest_logs/ingest.log"
