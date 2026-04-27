@@ -1,10 +1,18 @@
 import json
 import os
 import shlex
+import sys
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
+
+sys.path.insert(0, str(Path(__file__).parent))
+try:
+    import kestrel_persona as _persona
+    _PERSONA_OK = True
+except Exception:
+    _PERSONA_OK = False
 
 BASE = Path.home() / "NODE"
 CORPUS = BASE / "training/corpus"
@@ -634,6 +642,7 @@ def render() -> str:
     <div class="tab" data-tab="validation">Validation</div>
     <div class="tab" data-tab="offload">Offload Archive</div>
     <div class="tab" data-tab="logs">Logs</div>
+    <div class="tab" data-tab="console">Console</div>
   </nav>
 </header>
 
@@ -797,6 +806,24 @@ def render() -> str:
   <pre>{log_lines or "(empty)"}</pre>
 </div>
 
+<div id="tab-console" class="panel">
+  <h2>Console</h2>
+  <div id="console-log" style="
+    font-family:monospace; font-size:0.88em; background:#070707;
+    border:1px solid #222; padding:0.8rem 1rem; min-height:240px;
+    max-height:480px; overflow-y:auto; margin-bottom:0.7rem;
+    white-space:pre-wrap; color:#c8ffc8; line-height:1.5;
+  "></div>
+  <div style="display:flex; gap:8px; max-width:700px">
+    <input type="text" id="console-input"
+      placeholder="Tell Kestrel what you need…"
+      style="flex:1; background:#111; color:#c8ffc8; border:1px solid #444;
+             padding:6px 10px; font-family:monospace; font-size:0.9em;"
+      onkeydown="if(event.key==='Enter')consoleSubmit()">
+    <button class="btn" onclick="consoleSubmit()">Send</button>
+  </div>
+</div>
+
 <script>
 (function () {{
   var tabLoaders = {{
@@ -805,7 +832,8 @@ def render() -> str:
     'elevated':   loadElevated,
     'truthgate':  loadTruthGate,
     'validation': loadValidation,
-    'offload':    loadOffload
+    'offload':    loadOffload,
+    'console':    loadConsole
   }};
   var tabLoaded = {{}};
 
@@ -1218,6 +1246,54 @@ function fetchW3m() {{
     .catch(function () {{ msg.className = 'msg err'; msg.textContent = 'Request failed.'; }});
 }}
 
+// --- Console ---
+var _consolePending = false;
+function _consoleAppend(who, text) {{
+  var log = document.getElementById('console-log');
+  var prefix = who === 'kestrel' ? 'Kestrel\n' : '→ ';
+  log.textContent += prefix + text + '\n\n';
+  log.scrollTop = log.scrollHeight;
+}}
+
+function loadConsole() {{
+  fetch('/api/dialog', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{text: '__ready__'}})
+  }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(d) {{
+      if (d.response) _consoleAppend('kestrel', d.response);
+    }})
+    .catch(function() {{
+      _consoleAppend('kestrel', 'Kestrel online. (status unavailable)');
+    }});
+}}
+
+function consoleSubmit() {{
+  if (_consolePending) return;
+  var inp = document.getElementById('console-input');
+  var text = inp.value.trim();
+  if (!text) return;
+  _consoleAppend('user', text);
+  inp.value = '';
+  _consolePending = true;
+  fetch('/api/dialog', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{text: text}})
+  }})
+    .then(function(r) {{ return r.json(); }})
+    .then(function(d) {{
+      _consoleAppend('kestrel', d.response || d.error || '(no response)');
+      _consolePending = false;
+    }})
+    .catch(function() {{
+      _consoleAppend('kestrel', 'Request failed.');
+      _consolePending = false;
+    }});
+}}
+
 // --- Validation ---
 function loadValidation() {{
   fetch('/api/validation')
@@ -1408,6 +1484,19 @@ class Handler(BaseHTTPRequestHandler):
                     data.get("tags", ""),
                 )
                 self._json(result)
+            except Exception as exc:
+                self._json({"error": str(exc)}, status=400)
+
+        elif path == "/api/dialog":
+            try:
+                data = json.loads(raw)
+                text = data.get("text", "").strip()
+                if not _PERSONA_OK:
+                    self._json({"response": "Persona module unavailable."})
+                elif text == "__ready__":
+                    self._json({"response": _persona.build_ready_state()})
+                else:
+                    self._json({"response": _persona.handle(text)})
             except Exception as exc:
                 self._json({"error": str(exc)}, status=400)
 
