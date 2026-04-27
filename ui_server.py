@@ -24,6 +24,11 @@ ARCHIVE_DIR = BASE / "archive/offloaded_batches"
 SS_LOG = BASE / "metadata/ingest_logs/semantic_scholar.log"
 SS_STATE = BASE / "metadata/ingest_logs/semantic_scholar_state.json"
 
+UPLOAD_DIR = Path.home() / "incoming/uploads"
+TELEGRAM_DIR = Path.home() / "incoming/telegram"
+W3M_FETCH_QUEUE = BASE / "runtime/w3m_fetch_queue.jsonl"
+WEB_CAPTURE_DIR = BASE / "staging/web_capture"
+
 PAPER_SOURCES = ["arxiv_feed.jsonl", "semantic_scholar_feed.jsonl"]
 
 ACCEPTED_STATES = frozenset({"ACCEPTED", "accepted"})
@@ -405,6 +410,114 @@ def get_ingest_status() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Directory browser
+# ---------------------------------------------------------------------------
+
+def browse_directory(path: str | None) -> dict:
+    approved = [r.resolve() for r in SEARCH_ROOTS]
+
+    if path is None:
+        entries = []
+        for root in SEARCH_ROOTS:
+            if root.exists():
+                entries.append({"name": root.name, "path": str(root.resolve()), "type": "dir", "size": None})
+        return {"cwd": None, "parent": None, "entries": entries}
+
+    p = Path(path).resolve()
+    if not any(str(p).startswith(str(r)) or p == r for r in approved):
+        raise ValueError(f"Path outside approved roots: {path}")
+    if not p.exists() or not p.is_dir():
+        raise ValueError(f"Not a directory: {path}")
+
+    parent_p = p.parent
+    approved_strs = {str(r) for r in approved}
+    if str(p) in approved_strs:
+        parent = "__roots__"
+    elif parent_p != p and any(str(parent_p).startswith(str(r)) or parent_p == r for r in approved):
+        parent = str(parent_p)
+    else:
+        parent = None
+
+    entries = []
+    try:
+        for child in sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name.lower())):
+            if child.name.startswith('.'):
+                continue
+            if any(part in PROTECTED_NAMES for part in child.parts):
+                continue
+            if child.suffix in PROTECTED_SUFFIXES:
+                continue
+            size = None
+            if child.is_file():
+                try:
+                    size = child.stat().st_size
+                except Exception:
+                    pass
+            entries.append({
+                "name": child.name,
+                "path": str(child),
+                "type": "dir" if child.is_dir() else "file",
+                "size": size,
+            })
+    except PermissionError:
+        pass
+
+    return {"cwd": str(p), "parent": parent, "entries": entries}
+
+
+# ---------------------------------------------------------------------------
+# File intake helpers
+# ---------------------------------------------------------------------------
+
+def upload_file(filename: str, data: bytes) -> dict:
+    safe_name = Path(filename).name
+    if not safe_name or safe_name.startswith('.'):
+        raise ValueError("Invalid filename")
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    dest = UPLOAD_DIR / safe_name
+    if dest.exists():
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        dest = UPLOAD_DIR / f"{dest.stem}_{ts}{dest.suffix}"
+    dest.write_bytes(data)
+    return {"path": str(dest), "filename": dest.name, "size": len(data)}
+
+
+def queue_w3m_fetch(url: str, source_type: str, tags: str) -> dict:
+    if not url.startswith(("http://", "https://")):
+        raise ValueError("URL must start with http:// or https://")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    job_id = f"w3m-{ts}"
+    entry = {
+        "id": job_id,
+        "url": url,
+        "source_type": source_type,
+        "tags": tags,
+        "status": "queued",
+        "queued_at": datetime.now(timezone.utc).isoformat(),
+        "output_dir": str(WEB_CAPTURE_DIR),
+    }
+    W3M_FETCH_QUEUE.parent.mkdir(parents=True, exist_ok=True)
+    with W3M_FETCH_QUEUE.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    return {"job_id": job_id, "status": "queued", "url": url}
+
+
+def list_telegram_files() -> list:
+    if not TELEGRAM_DIR.exists():
+        return []
+    results = []
+    try:
+        for p in sorted(TELEGRAM_DIR.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+            if p.is_file() and not p.name.startswith('.'):
+                results.append({"path": str(p), "name": p.name, "size": p.stat().st_size})
+            if len(results) >= 20:
+                break
+    except PermissionError:
+        pass
+    return results
+
+
+# ---------------------------------------------------------------------------
 # HTML render
 # ---------------------------------------------------------------------------
 
@@ -447,6 +560,8 @@ def render() -> str:
   .panel.active {{ display: block; }}
   h2 {{ color: #88ffcc; border-bottom: 1px solid #333; padding-bottom: 4px; margin-top: 1.5rem; }}
   h2:first-child {{ margin-top: 0; }}
+  h3 {{ color: #88ffcc; margin-top: 1.3rem; margin-bottom: 0.2rem; font-size: 0.95em; border-left: 2px solid #444; padding-left: 8px; }}
+  .intake-section {{ border: 1px solid #2a2a2a; background: #0f0f0f; padding: 0.8rem 1rem; margin-bottom: 0.5rem; max-width: 700px; }}
   table {{ border-collapse: collapse; width: 100%; max-width: 860px; margin-bottom: 1rem; }}
   td, th {{ border: 1px solid #333; padding: 4px 10px; text-align: left; vertical-align: top; }}
   th {{ color: #aaa; }}
@@ -480,6 +595,10 @@ def render() -> str:
     border: 1px solid #444; padding: 6px 10px; font-family: monospace; font-size: 0.9em;
   }}
   .field input[type=text]:focus, .field select:focus {{ outline: none; border-color: #00ff88; }}
+  .field input[type=file] {{
+    color: #c8ffc8; background: #111; border: 1px solid #444;
+    padding: 5px 8px; font-family: monospace; font-size: 0.85em; flex: 1;
+  }}
   .inline {{ display: flex; gap: 8px; max-width: 600px; }}
   .inline input {{ flex: 1; min-width: 0; }}
   .btn {{ background: #003322; color: #00ff88; border: 1px solid #00ff88;
@@ -570,22 +689,61 @@ def render() -> str:
 <div id="tab-manualingest" class="panel">
   <h2>Manual Ingest</h2>
   <p class="note">
-    Stages selected local material for pipeline evaluation. Material is NOT automatically promoted.<br>
+    Stages local material for pipeline evaluation. Material is NOT automatically promoted.<br>
     Promotion requires truth-gate corroboration: two verified supporting sources OR two indirectly supporting facts.
   </p>
+
   <div class="field">
-    <label>Source path</label>
-    <input type="text" id="source-path" placeholder="/home/rick/incoming/notes.txt">
+    <label>Source path <small style="color:#666">(filled by any route below, or type directly)</small></label>
+    <input type="text" id="source-path" placeholder="/home/rick/incoming/...">
   </div>
-  <div class="field">
-    <label>Search repo files</label>
-    <div class="inline">
-      <input type="text" id="search-query" placeholder="filename keyword or path fragment"
+
+  <h3>A — Browse existing NODE files</h3>
+  <div class="intake-section">
+    <p class="note" style="margin-top:0">Navigate folders on NODE. Click a file to fill Source path. Or search by keyword below.</p>
+    <div id="fb-breadcrumb" style="font-size:0.85em;color:#888;margin-bottom:0.4rem;padding:4px 6px;background:#0a0a0a;border:1px solid #222">Loading…</div>
+    <div id="fb-entries" style="max-height:240px;overflow-y:auto;border:1px solid #333;background:#0a0a0a;margin-bottom:0.5rem"><div class="loading" style="padding:0.5rem">Loading…</div></div>
+    <div style="display:flex;gap:8px;max-width:600px">
+      <input type="text" id="search-query" placeholder="search by filename keyword"
+             style="flex:1;background:#111;color:#c8ffc8;border:1px solid #444;padding:5px 8px;font-family:monospace;font-size:0.85em"
              onkeydown="if(event.key==='Enter')searchFiles()">
-      <button class="btn" onclick="searchFiles()">Search files</button>
+      <button class="btn" onclick="searchFiles()">Search</button>
     </div>
     <div class="search-results" id="search-results"></div>
   </div>
+
+  <h3>B — Upload from HOST</h3>
+  <div class="intake-section">
+    <p class="note" style="margin-top:0">Browser file picker → /home/rick/incoming/uploads/ → Source path auto-filled.</p>
+    <div class="field" style="margin-bottom:0">
+      <div class="inline">
+        <input type="file" id="upload-file-input">
+        <button class="btn" onclick="uploadFile()">Upload to NODE</button>
+      </div>
+      <div class="msg" id="upload-msg"></div>
+    </div>
+  </div>
+
+  <h3>C — Telegram intake</h3>
+  <div class="intake-section">
+    <p class="note" style="margin-top:0">Files sent to the Telegram bot land in <span class="path">/home/rick/incoming/telegram/</span>. Click a file to fill Source path.</p>
+    <div id="telegram-files-container"><p class="loading">Loading…</p></div>
+    <button class="btn" onclick="loadTelegramFiles()" style="margin-top:0.5rem">Refresh</button>
+  </div>
+
+  <h3>D — Fetch URL with w3m</h3>
+  <div class="intake-section">
+    <p class="note" style="margin-top:0">w3m fetches and validates the web source → staged to staging/web_capture/ → truth gate.</p>
+    <div class="field" style="margin-bottom:0">
+      <div class="inline">
+        <input type="text" id="w3m-url" placeholder="https://arxiv.org/abs/...">
+        <button class="btn" onclick="fetchW3m()">Fetch with w3m</button>
+      </div>
+      <div class="msg" id="w3m-msg"></div>
+    </div>
+  </div>
+
+  <hr style="border:none;border-top:1px solid #333;margin:1.5rem 0">
   <div class="field">
     <label>Mode</label>
     <select id="ingest-mode">
@@ -671,6 +829,17 @@ def render() -> str:
       if (el) el.style.display = 'none';
     }}
   }});
+
+  document.querySelectorAll('.tab').forEach(function (tab) {{
+    tab.addEventListener('click', function () {{
+      if (tab.dataset.tab === 'manualingest') {{
+        loadTelegramFiles();
+        fbLoad(null);
+      }}
+    }});
+  }});
+
+  fbLoad(null);
 }})();
 
 function stateBadge(state) {{
@@ -796,6 +965,60 @@ function loadTruthGate() {{
     }});
 }}
 
+// --- File browser (Route A) ---
+var fbCwd = null;
+function fbLoad(path) {{
+  var entriesEl = document.getElementById('fb-entries');
+  var breadEl = document.getElementById('fb-breadcrumb');
+  entriesEl.innerHTML = '<div class="loading" style="padding:0.5rem">Loading…</div>';
+  var url = '/api/browse' + (path != null ? '?path=' + encodeURIComponent(path) : '');
+  fetch(url, {{ cache: 'no-store' }})
+    .then(function (r) {{ return r.json(); }})
+    .then(function (data) {{
+      if (data.error) {{
+        entriesEl.innerHTML = '<div style="color:#f55;padding:0.5rem">' + esc(data.error) + '</div>';
+        return;
+      }}
+      fbCwd = data.cwd;
+      var crumb = data.cwd || '/ (roots)';
+      var upTarget = data.parent === '__roots__' ? null : data.parent;
+      var upBtn = data.parent !== null
+        ? '<button class="btn" onclick="fbLoad(' + (upTarget !== null ? JSON.stringify(upTarget) : 'null') + ')" style="padding:2px 8px;font-size:0.8em;margin-right:8px">↑ up</button>'
+        : '';
+      breadEl.innerHTML = upBtn + '<span style="color:#aaffff">' + esc(crumb) + '</span>';
+      entriesEl.innerHTML = '';
+      if (!data.entries.length) {{
+        entriesEl.innerHTML = '<div style="color:#555;padding:0.5rem;font-style:italic">(empty)</div>';
+        return;
+      }}
+      data.entries.forEach(function (e) {{
+        var d = document.createElement('div');
+        d.style.cssText = 'padding:5px 10px;cursor:pointer;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:8px;font-family:monospace;font-size:0.85em';
+        if (e.type === 'dir') {{
+          d.innerHTML = '<span style="color:#f5c542">&#128193;</span><span style="color:#c8ffc8">' + esc(e.name) + '/</span>';
+          d.addEventListener('click', function () {{ fbLoad(e.path); }});
+        }} else {{
+          var sz = e.size !== null ? '<span style="color:#444;font-size:0.8em;margin-left:6px">' + e.size + 'B</span>' : '';
+          d.innerHTML = '<span style="color:#555">&#128196;</span><span style="color:#aaffff">' + esc(e.name) + '</span>' + sz;
+          d.addEventListener('click', function () {{
+            document.getElementById('source-path').value = e.path;
+            document.querySelectorAll('#fb-entries div').forEach(function(x){{x.style.background='';}});
+            d.style.background = '#001a0d';
+            var msg = document.getElementById('ingest-msg');
+            msg.className = 'msg ok';
+            msg.textContent = 'Selected: ' + e.path;
+          }});
+        }}
+        d.addEventListener('mouseover', function () {{ if (!d.style.background || d.style.background !== 'rgb(0, 26, 13)') d.style.background='#1a2a1a'; }});
+        d.addEventListener('mouseout',  function () {{ if (d.style.background !== 'rgb(0, 26, 13)') d.style.background=''; }});
+        entriesEl.appendChild(d);
+      }});
+    }})
+    .catch(function () {{
+      entriesEl.innerHTML = '<div style="color:#f55;padding:0.5rem">Browse failed.</div>';
+    }});
+}}
+
 // --- Manual ingest search / queue ---
 function searchFiles() {{
   var q = document.getElementById('search-query').value.trim();
@@ -903,6 +1126,93 @@ function queueIngest() {{
         msg.className = 'msg err'; msg.textContent = 'Error: ' + data.error;
       }} else {{
         msg.className = 'msg ok'; msg.textContent = 'Queued: ' + data.job_id;
+      }}
+    }})
+    .catch(function () {{ msg.className = 'msg err'; msg.textContent = 'Request failed.'; }});
+}}
+
+// --- Upload from HOST ---
+function uploadFile() {{
+  var input = document.getElementById('upload-file-input');
+  var msg = document.getElementById('upload-msg');
+  if (!input.files || !input.files[0]) {{
+    msg.className = 'msg err'; msg.textContent = 'Select a file first.'; return;
+  }}
+  var file = input.files[0];
+  msg.className = 'msg pending'; msg.textContent = 'Uploading ' + file.name + '…';
+  fetch('/api/upload-file?filename=' + encodeURIComponent(file.name), {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/octet-stream' }},
+    body: file
+  }})
+    .then(function (r) {{ return r.json(); }})
+    .then(function (data) {{
+      if (data.error) {{
+        msg.className = 'msg err'; msg.textContent = 'Upload error: ' + data.error;
+      }} else {{
+        document.getElementById('source-path').value = data.path;
+        msg.className = 'msg ok';
+        msg.textContent = 'Uploaded: ' + data.path + ' (' + data.size + ' bytes)';
+      }}
+    }})
+    .catch(function (err) {{
+      msg.className = 'msg err'; msg.textContent = 'Upload failed: ' + err.message;
+    }});
+}}
+
+// --- Telegram intake ---
+function loadTelegramFiles() {{
+  var el = document.getElementById('telegram-files-container');
+  if (!el) return;
+  el.innerHTML = '<p class="loading">Loading…</p>';
+  fetch('/api/telegram-files', {{ cache: 'no-store' }})
+    .then(function (r) {{ return r.json(); }})
+    .then(function (data) {{
+      var files = data.files || [];
+      if (!files.length) {{
+        el.innerHTML = '<p class="note" style="color:#555">(no files in /home/rick/incoming/telegram/ yet)</p>';
+        return;
+      }}
+      el.innerHTML = '';
+      files.forEach(function (f) {{
+        var d = document.createElement('div');
+        d.className = 'result';
+        d.style.cssText = 'display:block;padding:6px 10px;border-bottom:1px solid #222;cursor:pointer;margin-bottom:2px;color:#aaffff';
+        d.textContent = f.name + ' (' + f.size + ' bytes)';
+        d.addEventListener('click', function () {{
+          document.getElementById('source-path').value = f.path;
+          var msg = document.getElementById('ingest-msg');
+          msg.className = 'msg ok';
+          msg.textContent = 'Selected: ' + f.path;
+        }});
+        el.appendChild(d);
+      }});
+    }})
+    .catch(function () {{
+      el.innerHTML = '<p class="note" style="color:#f55">Failed to load Telegram files.</p>';
+    }});
+}}
+
+// --- Fetch URL with w3m ---
+function fetchW3m() {{
+  var url = document.getElementById('w3m-url').value.trim();
+  var msg = document.getElementById('w3m-msg');
+  var source_type = document.getElementById('source-type').value;
+  var tags = document.getElementById('ingest-tags').value.trim();
+  if (!url) {{ msg.className = 'msg err'; msg.textContent = 'Enter a URL first.'; return; }}
+  msg.className = 'msg pending'; msg.textContent = 'Queuing w3m fetch…';
+  fetch('/api/queue-w3m-fetch', {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{ url: url, source_type: source_type, tags: tags }})
+  }})
+    .then(function (r) {{ return r.json(); }})
+    .then(function (data) {{
+      if (data.error) {{
+        msg.className = 'msg err'; msg.textContent = 'Error: ' + data.error;
+      }} else {{
+        msg.className = 'msg ok';
+        msg.textContent = 'Queued: ' + data.job_id + ' — w3m will fetch ' + data.url;
       }}
     }})
     .catch(function () {{ msg.className = 'msg err'; msg.textContent = 'Request failed.'; }});
@@ -1050,13 +1360,24 @@ class Handler(BaseHTTPRequestHandler):
             self._json(offload_summary())
         elif p == "/api/manual-ingest-status":
             self._json(get_ingest_status())
+        elif p == "/api/telegram-files":
+            self._json({"files": list_telegram_files()})
+        elif p == "/api/browse":
+            qs = parse_qs(parsed.query)
+            browse_path = (qs.get("path") or [None])[0]
+            try:
+                self._json(browse_directory(browse_path))
+            except Exception as exc:
+                self._json({"error": str(exc)}, status=400)
         else:
             self._respond(404, "text/plain; charset=utf-8", b"Not found")
 
     def do_POST(self):
-        if urlparse(self.path).path == "/api/queue-manual-ingest":
-            length = int(self.headers.get("Content-Length", 0))
-            raw = self.rfile.read(length)
+        path = urlparse(self.path).path
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+
+        if path == "/api/queue-manual-ingest":
             try:
                 data = json.loads(raw)
                 result = queue_manual_ingest(
@@ -1068,6 +1389,28 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(result)
             except Exception as exc:
                 self._json({"error": str(exc)}, status=400)
+
+        elif path == "/api/upload-file":
+            try:
+                qs = parse_qs(urlparse(self.path).query)
+                filename = (qs.get("filename") or ["upload"])[0]
+                result = upload_file(filename, raw)
+                self._json(result)
+            except Exception as exc:
+                self._json({"error": str(exc)}, status=400)
+
+        elif path == "/api/queue-w3m-fetch":
+            try:
+                data = json.loads(raw)
+                result = queue_w3m_fetch(
+                    data.get("url", ""),
+                    data.get("source_type", "web_capture"),
+                    data.get("tags", ""),
+                )
+                self._json(result)
+            except Exception as exc:
+                self._json({"error": str(exc)}, status=400)
+
         else:
             self._respond(404, "text/plain; charset=utf-8", b"Not found")
 
