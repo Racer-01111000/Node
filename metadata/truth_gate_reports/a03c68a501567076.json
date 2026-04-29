@@ -1,0 +1,16 @@
+{
+  "candidate_id": "a03c68a501567076",
+  "attempted_at": "2026-04-29T10:49:13.137675+00:00",
+  "url": "https://arxiv.org/abs/2403.04006",
+  "status": "validated",
+  "text_hash": "93d93147fea5a82c04586e1b91bcfcc7ff673d38e41086b6ccd6751e9d75f416",
+  "match": {
+    "title_found": true,
+    "title_checked": "Piquasso",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

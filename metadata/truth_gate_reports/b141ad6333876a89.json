@@ -1,0 +1,16 @@
+{
+  "candidate_id": "b141ad6333876a89",
+  "attempted_at": "2026-04-29T10:37:13.125672+00:00",
+  "url": "https://arxiv.org/abs/2011.03031",
+  "status": "validated",
+  "text_hash": "7ab0930e165c7745d8984292b729b0a6718f0e4769a04a2dd3274ba42b596176",
+  "match": {
+    "title_found": true,
+    "title_checked": "Quantum simulation and computing with Rydberg-interacting qubits",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

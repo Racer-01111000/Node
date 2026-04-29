@@ -1,0 +1,16 @@
+{
+  "candidate_id": "8a6f51e5d66aba43",
+  "attempted_at": "2026-04-29T10:43:13.135284+00:00",
+  "url": "https://arxiv.org/abs/2212.12078",
+  "status": "validated",
+  "text_hash": "6ad92de61155243b724b5581e2271917ef7a8d1e5e9e6cec525799e74939ddda",
+  "match": {
+    "title_found": true,
+    "title_checked": "Dissipation as a resource for Quantum Reservoir Computing",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

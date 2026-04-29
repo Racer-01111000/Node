@@ -1,0 +1,16 @@
+{
+  "candidate_id": "7a7a70610897d512",
+  "attempted_at": "2026-04-29T10:34:13.124411+00:00",
+  "url": "https://arxiv.org/abs/2103.07934",
+  "status": "validated",
+  "text_hash": "ed765c5ecdfb3b34523892cd85f539b486e570bef7fcc18ced8494778ef34147",
+  "match": {
+    "title_found": true,
+    "title_checked": "Quantum and Randomised Algorithms for Non-linearity Estimation",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

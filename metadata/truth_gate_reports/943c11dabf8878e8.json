@@ -1,0 +1,16 @@
+{
+  "candidate_id": "943c11dabf8878e8",
+  "attempted_at": "2026-04-29T07:56:21.254655+00:00",
+  "url": "https://arxiv.org/abs/2512.10504",
+  "status": "validated",
+  "text_hash": "576da8b64921a370c4f9d0c26f5e1d41c60eef73ce2e2b7ec493dd65d7b439ef",
+  "match": {
+    "title_found": true,
+    "title_checked": "Tianyan",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

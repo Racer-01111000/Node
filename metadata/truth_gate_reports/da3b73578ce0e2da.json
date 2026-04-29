@@ -1,0 +1,16 @@
+{
+  "candidate_id": "da3b73578ce0e2da",
+  "attempted_at": "2026-04-29T07:38:21.247115+00:00",
+  "url": "https://arxiv.org/abs/2302.12119",
+  "status": "validated",
+  "text_hash": "914c5854c656425c1827e6e5ef21351a33b11d01b102b02b1b392a9971d4c9dc",
+  "match": {
+    "title_found": true,
+    "title_checked": "Quantum computing online workshops and hackathon for Spanish speakers",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

@@ -1,0 +1,16 @@
+{
+  "candidate_id": "7827045a0722bc1a",
+  "attempted_at": "2026-04-29T10:40:13.133322+00:00",
+  "url": "https://arxiv.org/abs/9505018",
+  "status": "content_mismatch",
+  "text_hash": "fe14cb33fc916145034764893c9ed5830fd3de9a9ce5ff2feb5821dc9fe88fac",
+  "match": {
+    "title_found": false,
+    "title_checked": "Universality in Quantum Computation",
+    "topic_word_hits": 1,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

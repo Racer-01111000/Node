@@ -1,0 +1,16 @@
+{
+  "candidate_id": "fa67cc6e2ac18326",
+  "attempted_at": "2026-04-29T07:32:21.244462+00:00",
+  "url": "https://arxiv.org/abs/2506.15909",
+  "status": "validated",
+  "text_hash": "70bf69e598408b93d1cd669775c97b27dcfcb91cfbf7638c7985ea0f51ff8758",
+  "match": {
+    "title_found": true,
+    "title_checked": "Entangling Disciplines",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

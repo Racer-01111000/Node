@@ -1,0 +1,16 @@
+{
+  "candidate_id": "0ccb33cb030f9611",
+  "attempted_at": "2026-04-29T07:50:21.252238+00:00",
+  "url": "https://arxiv.org/abs/0501046",
+  "status": "content_mismatch",
+  "text_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "match": {
+    "title_found": false,
+    "title_checked": "Cavity QED and Quantum Computation in the Weak Coupling Regime II ",
+    "topic_word_hits": 0,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

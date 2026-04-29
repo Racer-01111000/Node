@@ -1,0 +1,16 @@
+{
+  "candidate_id": "5e94fd9ebf220e03",
+  "attempted_at": "2026-04-29T10:31:13.123303+00:00",
+  "url": "https://arxiv.org/abs/2408.03613",
+  "status": "content_mismatch",
+  "text_hash": "64814ad60b836f65a2536f83ca104a966af5b398b717ffc2156a484a5884ea98",
+  "match": {
+    "title_found": false,
+    "title_checked": "A Predictive Approach for Selecting the Best Quantum Solver for an Optimization Problem",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

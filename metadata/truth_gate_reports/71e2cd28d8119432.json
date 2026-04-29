@@ -1,0 +1,16 @@
+{
+  "candidate_id": "71e2cd28d8119432",
+  "attempted_at": "2026-04-29T10:46:13.136623+00:00",
+  "url": "https://arxiv.org/abs/1506.09091",
+  "status": "validated",
+  "text_hash": "6cc1e347c73f72027444a3911e61688a1021e5dd9e5fe6cc91ca00d75f4730aa",
+  "match": {
+    "title_found": true,
+    "title_checked": "Exploring the Quantum Speed Limit with Computer Games",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

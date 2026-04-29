@@ -1,0 +1,16 @@
+{
+  "candidate_id": "5398b4194d0411fe",
+  "attempted_at": "2026-04-29T10:28:13.122115+00:00",
+  "url": "https://arxiv.org/abs/2508.04217",
+  "status": "content_mismatch",
+  "text_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "match": {
+    "title_found": false,
+    "title_checked": "Dynamic Solutions for Hybrid Quantum-HPC Resource Allocation",
+    "topic_word_hits": 0,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

@@ -1,0 +1,16 @@
+{
+  "candidate_id": "a7d1d332c1623802",
+  "attempted_at": "2026-04-29T07:35:21.245882+00:00",
+  "url": "https://arxiv.org/abs/2312.06975",
+  "status": "validated",
+  "text_hash": "0d5a2795e3cadf624b7f6e4c16e424a2adb15cb06b5f3d8e751492e900a26230",
+  "match": {
+    "title_found": true,
+    "title_checked": "Arbitrary Ground State Observables from Quantum Computed Moments",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

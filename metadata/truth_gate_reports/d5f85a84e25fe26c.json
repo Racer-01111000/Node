@@ -1,0 +1,16 @@
+{
+  "candidate_id": "d5f85a84e25fe26c",
+  "attempted_at": "2026-04-29T07:53:21.253457+00:00",
+  "url": "https://arxiv.org/abs/1804.03719",
+  "status": "content_mismatch",
+  "text_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "match": {
+    "title_found": false,
+    "title_checked": "Quantum Algorithm Implementations for Beginners",
+    "topic_word_hits": 0,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}

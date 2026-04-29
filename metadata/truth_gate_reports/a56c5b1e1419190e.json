@@ -1,0 +1,16 @@
+{
+  "candidate_id": "a56c5b1e1419190e",
+  "attempted_at": "2026-04-29T07:44:21.249536+00:00",
+  "url": "https://arxiv.org/abs/1801.00862",
+  "status": "validated",
+  "text_hash": "74489e52f6cd021f0592ac81ddb83ef63cb97780e655ed8d15ef00d0406ad5b5",
+  "match": {
+    "title_found": true,
+    "title_checked": "Quantum Computing in the NISQ era and beyond",
+    "topic_word_hits": 2,
+    "topic_word_count": 2
+  },
+  "error": null,
+  "promoted": false,
+  "_failure_backoff": 600
+}
