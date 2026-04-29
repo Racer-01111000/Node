@@ -42,7 +42,7 @@ FAILURE_BACKOFF = 600
 MAX_FETCH_SECONDS = 30
 MAX_TEXT_BYTES = 250000
 
-TERMINAL_VALIDATION_STATUSES = frozenset({"done", "failed_permanent"})
+TERMINAL_VALIDATION_STATUSES = frozenset({"done", "failed_permanent", "validated", "content_mismatch"})
 
 
 def utc_now() -> str:
